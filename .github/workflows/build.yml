@@ -19,15 +19,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Free Space & Download ISO
+      - name: Free Space & Fast Download ISO
         shell: powershell
         run: |
-          # Create working directories on D: drive to prevent C: drive out-of-space errors
           New-Item -ItemType Directory -Force -Path "D:\build"
           New-Item -ItemType Directory -Force -Path "D:\scratch"
 
-          Write-Host "Downloading 8GB ISO to D:\build\win11.iso..."
-          Invoke-WebRequest -Uri "${{ github.event.inputs.iso_url }}" -OutFile "D:\build\win11.iso"
+          Write-Host "Downloading ISO to D:\build\win11.iso using curl..."
+          curl.exe -L -o "D:\build\win11.iso" "${{ github.event.inputs.iso_url }}"
 
       - name: Mount ISO & Run Tiny11 Script
         shell: powershell
@@ -38,8 +37,6 @@ jobs:
 
           Set-ExecutionPolicy Bypass -Scope Process -Force
 
-          # Execute tiny11maker.ps1 using D drive as SCRATCH
-          # Auto-respond to the image index prompt
           "${{ github.event.inputs.image_index }}" | .\tiny11maker.ps1 -ISO $mountedDrive -SCRATCH D
 
       - name: Upload Custom Tiny11 ISO
