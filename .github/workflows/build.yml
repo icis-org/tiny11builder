@@ -28,7 +28,7 @@ jobs:
           Write-Host "Downloading ISO to D:\build\win11.iso using curl..."
           curl.exe -L -o "D:\build\win11.iso" "${{ github.event.inputs.iso_url }}"
 
-      - name: Mount ISO & Run Tiny11 Script
+      - name: Mount ISO & Patch Script
         shell: powershell
         run: |
           $isoPath = "D:\build\win11.iso"
@@ -37,16 +37,10 @@ jobs:
 
           Set-ExecutionPolicy Bypass -Scope Process -Force
 
-          # Detect whether mounted ISO uses install.wim or install.esd
-          $hasWim = Test-Path "${mountedDrive}:\sources\install.wim"
-          $hasEsd = Test-Path "${mountedDrive}:\sources\install.esd"
+          # Direct text-replacement for all occurrences of ESD -> WIM in tiny11maker.ps1
+          (Get-Content .\tiny11maker.ps1) -replace 'install\.esd', 'install.wim' | Set-Content .\tiny11maker.ps1 -Encoding UTF8
 
-          if ($hasWim -and -not $hasEsd) {
-              Write-Host "ISO contains install.wim. Replacing all install.esd references in tiny11maker.ps1..."
-              (Get-Content -Path ".\tiny11maker.ps1") -replace 'install\.esd', 'install.wim' | Set-Content -Path ".\tiny11maker.ps1"
-          }
-
-          # Run tiny11maker.ps1 with specified image index
+          # Run the builder script
           "${{ github.event.inputs.image_index }}" | .\tiny11maker.ps1 -ISO $mountedDrive -SCRATCH D
 
       - name: Upload Custom Tiny11 ISO
