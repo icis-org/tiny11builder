@@ -37,18 +37,13 @@ jobs:
 
           Set-ExecutionPolicy Bypass -Scope Process -Force
 
-          # Patch tiny11maker.ps1 dynamically to support install.wim alongside install.esd
-          $scriptContent = Get-Content -Path ".\tiny11maker.ps1" -Raw
-          if ($scriptContent -match "install.esd") {
-              $mountedWim = "${mountedDrive}:\sources\install.wim"
-              $mountedEsd = "${mountedDrive}:\sources\install.esd"
-              
-              # If ISO contains install.wim instead of install.esd, patch script references
-              if ((Test-Path $mountedWim) -and (-not (Test-Path $mountedEsd))) {
-                  Write-Host "Detected install.wim in ISO. Patching tiny11maker.ps1..."
-                  $scriptContent = $scriptContent -replace 'install\.esd', 'install.wim'
-                  Set-Content -Path ".\tiny11maker.ps1" -Value $scriptContent
-              }
+          # Detect whether mounted ISO uses install.wim or install.esd
+          $hasWim = Test-Path "${mountedDrive}:\sources\install.wim"
+          $hasEsd = Test-Path "${mountedDrive}:\sources\install.esd"
+
+          if ($hasWim -and -not $hasEsd) {
+              Write-Host "ISO contains install.wim. Replacing all install.esd references in tiny11maker.ps1..."
+              (Get-Content -Path ".\tiny11maker.ps1") -replace 'install\.esd', 'install.wim' | Set-Content -Path ".\tiny11maker.ps1"
           }
 
           # Run tiny11maker.ps1 with specified image index
