@@ -1,0 +1,50 @@
+name: Build Tiny11 ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      iso_url:
+        description: 'Direct download URL for Windows 11 ISO (8GB file)'
+        required: true
+        default: 'https://software.download.prss.microsoft.com/dbazure/Windows11_Client_x64_en-us_26300_9457.iso?t=75006e8e-e751-4c1a-a447-87e68c3527b6&P1=1791019858&P2=602&P3=2&P4=j9x9VOZZ0DA9a98Doq%2BguHnzfcqf8k76ola0pVr7Nz7iHYKNxDz2QaqPzwqDpbLa5Bv5r6U5C10%2Ft2OpYNZ3zuW%2FuXN3ZSAbtXLt9%2BRGerhQFl7p6nWeUcLEoQazqkr9OwKU%2FMPK8MvDXXQ9iaN8Qw8KsgxrLra6s8SHWq1JK0CzH%2BrMTYsu0gTJ2ZMYOuWT%2BOu8%2BoQpMTFrodF5Z9%2BdqOSoGi77h5x73aiM6y6rAjRR2lKLDEks4qZmMFi5oX58%2FakXfpHlf4IjIntITVzcNfjHgjlhZv52BF%2F1L1Bh4BqC2hk0uWamd3IrTagNreVeee6LbmW5EzaI3CuvbVaJOQ%3D%3D'
+      image_index:
+        description: 'Windows Image Index (e.g., 1 for Pro, 6 for Home)'
+        required: true
+        default: '6'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Free Space & Download ISO
+        shell: powershell
+        run: |
+          # Create working directories on D: drive to prevent C: drive out-of-space errors
+          New-Item -ItemType Directory -Force -Path "D:\build"
+          New-Item -ItemType Directory -Force -Path "D:\scratch"
+
+          Write-Host "Downloading 8GB ISO to D:\build\win11.iso..."
+          Invoke-WebRequest -Uri "${{ github.event.inputs.iso_url }}" -OutFile "D:\build\win11.iso"
+
+      - name: Mount ISO & Run Tiny11 Script
+        shell: powershell
+        run: |
+          $isoPath = "D:\build\win11.iso"
+          Mount-DiskImage -ImagePath $isoPath
+          $mountedDrive = (Get-DiskImage -ImagePath $isoPath | Get-Volume).DriveLetter
+
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+
+          # Execute tiny11maker.ps1 using D drive as SCRATCH
+          # Auto-respond to the image index prompt
+          "${{ github.event.inputs.image_index }}" | .\tiny11maker.ps1 -ISO $mountedDrive -SCRATCH D
+
+      - name: Upload Custom Tiny11 ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiny11-custom-iso
+          path: ./*.iso
+          retention-days: 1
